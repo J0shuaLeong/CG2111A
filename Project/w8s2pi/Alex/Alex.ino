@@ -1,7 +1,17 @@
 #include <serialize.h>
+#include <stdarg.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
 #include "packet.h"
 #include "constants.h"
+#include "Arduino.h"
+
+#define S0  7
+#define S1  8
+#define S2  9
+#define S3  13
+#define OUT 12 
 
 typedef enum
 {
@@ -18,23 +28,31 @@ volatile TDirection dir = STOP;
  * Alex's configuration constants
  */
 
+#define pi 3.1415954
+
+#define ALEX_LENGTH 17
+#define ALEX_BREADTH 10
+
+float alexDiagnal = sqrt(ALEX_LENGTH * ALEX_LENGTH + ALEX_BREADTH * ALEX_BREADTH);
+float alexCirc = PI * alexDiagnal /2;
+
 // Number of ticks per revolution from the 
 // wheel encoder.
 
-#define COUNTS_PER_REV      185 //to be adjusted
+#define COUNTS_PER_REV      192 //to be adjusted
 
 // Wheel circumference in cm.
 // We will use this to calculate forward/backward distance traveled 
 // by taking revs * WHEEL_CIRC
 
-#define WHEEL_CIRC          21 //to be measured
+#define WHEEL_CIRC          20.65 //to be measured
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
-#define LF                  6   // Left forward pin
-#define LR                  5   // Left reverse pin
-#define RF                  10  // Right forward pin
-#define RR                  11  // Right reverse pin
+#define LF (1 << 5)   // PD Pin 5 - OC0B
+#define LR (1 << 6)   // PD Pin 6 - OC0A
+#define RF (1 << 3)   //11 PB Pin 3 - OC1B
+#define RR (1 << 2)   //10 PB Pin 2 - OC2A
 
 /*
  *    Alex's State Variables
@@ -53,17 +71,25 @@ volatile unsigned long rightForwardTicksTurns;
 volatile unsigned long leftReverseTicksTurns;
 volatile unsigned long rightReverseTicksTurns;
 
-// Store the revolutions on Alex's left
-// and right wheels
-volatile unsigned long leftRevs;
-volatile unsigned long rightRevs;
-
 // Forward and backward distance traveled
 volatile unsigned long forwardDist;
 volatile unsigned long reverseDist;
 
 unsigned long deltaDist;
 unsigned long newDist;
+
+unsigned long deltaTicks;
+unsigned long targetTicks;
+
+volatile int red = 0;
+volatile int green = 0;
+volatile int blue = 0;
+volatile int rgb_values[3] = {0,0,0};
+int diodeArray[3][2] = {{0,0},{0,1},{1,1}};
+int colours[2][3] = {{255,0,0}, {0,255,0}};
+int sensor_values[3][2] = {{1450, 880}, {1010, 740}, {1420, 720}};
+int colour_id[2] = {0, 1}; //1 - Red 2 - Green
+int tolerance = 30;
 
 /*
  * 
@@ -111,6 +137,9 @@ void sendStatus()
     statusPacket.params[7] = rightReverseTicksTurns; 
     statusPacket.params[8] = forwardDist;
     statusPacket.params[9] = reverseDist;
+    statusPacket.params[10] = rgb_values[0];
+    statusPacket.params[11] = rgb_values[1];
+    statusPacket.params[12] = rgb_values[2];
     sendResponse(&statusPacket);
 }
 
@@ -208,56 +237,46 @@ void enablePullups()
   // Use bare-metal to enable the pull-up resistors on pins
   // 2 and 3. These are pins PD2 and PD3 respectively.
   // We set bits 2 and 3 in DDRD to 0 to make them inputs. 
-  //DDRD &= 0b00000000;
-  //PORTB |= 0b00000110;
+  DDRD &= 0b11110011;
+  PORTD |= 0b00001100;
   
 }
 
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
-   switch(dir) { 
-    case FORWARD: 
-    leftForwardTicks ++; 
-    forwardDist = (unsigned long) ((float) leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC); 
-    //dbprintf("Forward distance travelled by left wheel: %.2lu\n", forwardDist); 
-    break; 
-    
-    case BACKWARD: 
-    leftReverseTicks ++; 
-    reverseDist = (unsigned long) ((float) leftReverseTicks / COUNTS_PER_REV * WHEEL_CIRC); 
-    //dbprintf("Distance travelled in reverse by left wheel: %.2lu\n", reverseDist); 
-    break; 
-    
-    case LEFT: 
-    leftReverseTicks ++; 
-    break; 
-
-    case RIGHT: 
-    leftForwardTicks ++; 
-    break; 
-  } 
+    if (dir == FORWARD) { 
+      leftForwardTicks++; 
+      forwardDist = (unsigned long) ((float) leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC); 
+      //dbprintf("Forward distance travelled by left wheel: %.2lu\n", forwardDist); 
+    }
+    else if (dir == BACKWARD) { 
+      leftReverseTicks++; 
+      reverseDist = (unsigned long) ((float) leftReverseTicks / COUNTS_PER_REV * WHEEL_CIRC); 
+      //dbprintf("Distance travelled in reverse by left wheel: %.2lu\n", reverseDist); 
+    }
+    else if (dir == LEFT) {
+      leftReverseTicksTurns++; 
+    }
+    else if (dir == RIGHT) {
+      leftForwardTicksTurns++;
+    } 
 }
 
 void rightISR()
 {
-   switch(dir) { 
-    case FORWARD: 
-    rightForwardTicks ++; 
-    break; 
-
-    case BACKWARD: 
-    rightReverseTicks ++; 
-    break; 
-    
-    case LEFT: 
-    rightForwardTicks ++; 
-    break; 
-  
-    case RIGHT: 
-    rightReverseTicks ++; 
-    break; 
-  } 
+    if (dir == FORWARD) {
+      rightForwardTicks++; 
+    }
+    else if (dir == BACKWARD) {
+      rightReverseTicks++; 
+    }
+    else if (dir == LEFT) {
+      rightForwardTicksTurns++; 
+    } 
+    else if (dir == RIGHT) {
+      rightReverseTicksTurns++; 
+    } 
 }
 
 // Set up the external interrupt pins INT0 and INT1
@@ -268,10 +287,8 @@ void setupEINT()
   // falling edge triggered. Remember to enable
   // the INT0 and INT1 interrupts.
   cli();
-  DDRD &= 0b11110011;
-  PORTD |= 0b00001100;
   EICRA |= 0b00001010;
-  EIMSK |= 0b11;
+  EIMSK |= 0b00000011;
   sei();
 }
 
@@ -300,7 +317,22 @@ ISR(INT1_vect) {
 void setupSerial()
 {
   // To replace later with bare-metal.
+//  unsigned long baudRate = 9600;
+//  unsigned int b;
+//  b = (unsigned int) round (F_CPU / (16.0 * baudRate)) - 1;
+//  UBRR0H = (unsigned char) (b >> 8);
+//  UBRR0L = (unsigned char) b;
+//
+//  //Async mode
+//  //No parity
+//  //1 stop bit
+//  //8N1 configuration 
+//  //bit 0 (UCPOL0) is always 0
+//  UCSR0C = 0b00000110;
+//
+//  UCSR0A = 0;
   Serial.begin(9600);
+  
 }
 
 // Start the serial connection. For now we are using
@@ -311,6 +343,7 @@ void startSerial()
 {
   // Empty for now. To be replaced with bare-metal code
   // later on.
+  //UCSR0B = 0b00011000;
   
 }
 
@@ -321,6 +354,17 @@ void startSerial()
 int readSerial(char *buffer)
 {
 
+//  int count=0;
+//
+//  do {
+//
+//    while ((UCSR0A & 0b10000000) == 0);
+//
+//    buffer[count] = UDR0;
+//    
+//  } while (buffer[count++] != '\0');
+//
+//  return count;
   int count=0;
 
   while(Serial.available())
@@ -334,6 +378,11 @@ int readSerial(char *buffer)
 
 void writeSerial(const char *buffer, int len)
 {
+  //Serial.write(buffer, len);
+//  for (int i = 0; i < len; i++) {
+//    while ((UCSR0A & 0b00100000) == 0);
+//    UDR0 = buffer[i];
+//  }
   Serial.write(buffer, len);
 }
 
@@ -353,6 +402,8 @@ void setupMotors()
    *    B1IN - Pin 10, PB2, OC1B
    *    B2In - pIN 11, PB3, OC2A
    */
+   DDRD |= (LF|LR);
+   DDRB |= (RF|RR);
 }
 
 // Start the PWM for Alex's motors.
@@ -360,7 +411,13 @@ void setupMotors()
 // blank.
 void startMotors()
 {
-  
+  //setting up timer 0 for left motor
+  //TCNT0 = 0; //start counter from 0
+  //TCCR0B = 0b00000011; //clk/64 source
+
+  //setting up timer 1 for right motor
+  //TCNT2 = 0;
+  //TCCR1B = 0b00000011; //clk/64 source
 }
 
 // Convert percentages to PWM values
@@ -386,6 +443,12 @@ void forward(float dist, float speed)
   
   int val = pwmVal(speed);
 
+  if(dist > 0)
+    deltaDist = dist;
+  else
+    deltaDist=9999999;
+  newDist=forwardDist + deltaDist;
+
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
   // in Week 9.
@@ -394,10 +457,18 @@ void forward(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   
-  analogWrite(LF, val);
-  analogWrite(RF, pwmVal(speed-20));
-  analogWrite(LR,0);
-  analogWrite(RR, 0);
+    analogWrite(LF, val);
+    analogWrite(RF, pwmVal(speed-8));
+    analogWrite(LR,0);
+    analogWrite(RR, 0);
+
+//  OCR0A = 0;
+//  OCR0B = val;
+//  OCR1B = 0;
+//  OCR2A = val;
+//
+//  TCCR0A = 0b00100001; //left motor forward
+//  TCCR1A = 0b00100001; //right motor forward
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -407,17 +478,16 @@ void forward(float dist, float speed)
 // continue reversing indefinitely.
 void reverse(float dist, float speed)
 {
-  if (dist == 0)
-        deltaDist = 999999;
-    else
-        deltaDist = dist;
-
-    newDist = reverseDist + deltaDist;
-
-    dir = BACKWARD;
+  dir = BACKWARD;
   
   int val = pwmVal(speed);
 
+  if(dist > 0)
+    deltaDist = dist;
+  else
+    deltaDist=9999999;
+  newDist=forwardDist + deltaDist;
+  
   // For now we will ignore dist and 
   // reverse indefinitely. We will fix this
   // in Week 9.
@@ -426,9 +496,23 @@ void reverse(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   analogWrite(LR, val);
-  analogWrite(RR, pwmVal(speed-20));
+  analogWrite(RR, pwmVal(speed-10));
   analogWrite(LF, 0);
   analogWrite(RF, 0);
+//  OCR0A = val;
+//  OCR0B = 0;
+//  OCR1B = val;
+//  OCR2A = 0;
+//
+//  TCCR0A = 0b10000001; //left motor reverse
+//  TCCR1A = 0b10000001; //right motor reverse
+  
+}
+
+unsigned long computeDeltaTicks(float ang) 
+{
+  unsigned long ticks = (unsigned long) ((ang * alexCirc * COUNTS_PER_REV) / (360.0 * WHEEL_CIRC));
+  return ticks;
 }
 
 // Turn Alex left "ang" degrees at speed "speed".
@@ -442,14 +526,29 @@ void left(float ang, float speed)
   
   int val = pwmVal(speed);
 
+  if (ang == 0)
+    deltaTicks = 999999;
+  else
+    deltaTicks = computeDeltaTicks(ang);
+
+  targetTicks = rightReverseTicksTurns + deltaTicks;
+
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(LR, val);
-  analogWrite(RF, val);
-  analogWrite(LF, 0);
-  analogWrite(RR, 0);
+    analogWrite(LR, val);
+    analogWrite(RF, val);
+    analogWrite(LF, 0);
+    analogWrite(RR, 0);
+
+//  OCR0A = val;
+//  OCR0B = 0;
+//  OCR1A = 0;
+//  OCR2B = val;
+//
+//  TCCR0A = 0b10000001; //left motor reverse
+//  TCCR1A = 0b00100001; //right motor forward
 }
 
 // Turn Alex right "ang" degrees at speed "speed".
@@ -463,23 +562,47 @@ void right(float ang, float speed)
   
   int val = pwmVal(speed);
 
+  if (ang == 0)
+    deltaTicks = 999999;
+  else
+    deltaTicks = computeDeltaTicks(ang);
+
+  targetTicks = rightReverseTicksTurns + deltaTicks;
+
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  analogWrite(RR, val);
-  analogWrite(LF, val);
-  analogWrite(LR, 0);
-  analogWrite(RF, 0);
+    analogWrite(RR, val);
+    analogWrite(LF, val);
+    analogWrite(LR, 0);
+    analogWrite(RF, 0);
+//  OCR0A = 0;
+//  OCR0B = val;
+//  OCR1A = val;
+//  OCR2B = 0;
+//
+//  TCCR0A = 0b00100001; //left motor forward
+//  TCCR1A = 0b10000001; //right motor reverse
 }
 
 // Stop Alex. To replace with bare-metal code later.
 void stop()
 {
-  analogWrite(LF, 0);
-  analogWrite(LR, 0);
-  analogWrite(RF, 0);
-  analogWrite(RR, 0);
+//  dir = STOP;
+//
+//  OCR0A = 0;
+//  OCR0B = 0;
+//  OCR1A = 0;
+//  OCR1B = 0;
+//
+//  TCCR0A = 0b00000001; //left motor forward
+//  TCCR1A = 0b00000001; //right motor forward
+    analogWrite(RR, 0);
+    analogWrite(LF, 0);
+    analogWrite(LR, 0);
+    analogWrite(RF, 0);
+  
 }
 
 /*
@@ -494,12 +617,12 @@ void clearCounters()
   rightForwardTicks = 0;
   leftReverseTicks = 0;
   rightReverseTicks = 0;
-  leftForwardTicksTurns=0;
-  rightForwardTicksTurns=0;
-  leftReverseTicksTurns=0;
-  rightReverseTicksTurns=0;
-  leftRevs = 0;
-  rightRevs = 0;
+  
+  leftForwardTicksTurns = 0;
+  rightForwardTicksTurns = 0;
+  leftReverseTicksTurns = 0;
+  rightReverseTicksTurns = 0;
+  
   forwardDist = 0;
   reverseDist = 0; 
 }
@@ -507,7 +630,24 @@ void clearCounters()
 // Clears one particular counter
 void clearOneCounter(int which)
 {
-  clearCounters();
+  switch (which) {
+    case 0: leftForwardTicks = 0;
+      break;
+    case 1: rightForwardTicks = 0;
+      break;
+    case 2: leftReverseTicks = 0;
+      break;
+    case 3: rightReverseTicks = 0;
+      break;
+    case 4: leftForwardTicksTurns = 0;
+      break;
+    case 5: rightForwardTicksTurns = 0;
+      break;
+    case 6: leftReverseTicksTurns = 0;
+      break;
+    case 7: rightReverseTicksTurns = 0;
+      break;
+  }
 }
 
 // Intialize Vincet's internal states
@@ -547,6 +687,14 @@ void handleCommand(TPacket *command)
         stop();
       break;
 
+    case COMMAND_GET_STATS:
+      sendStatus();
+      break;
+
+    case COMMAND_CLEAR_STATS:
+      clearCounters();
+      break;
+      
     /*
      * Implement code for other commands here.
      * 
@@ -598,6 +746,22 @@ void setup() {
   // put your setup code here, to run once:
 
   cli();
+  //Set F1,F2, DIODE1, DIODE2 to output, OUT to input
+  DDRD |= 0b10000000; 
+  DDRB |= 0b00100011;
+  DDRB &= ~0b00010000;
+  PORTD &= ~0b10000000;
+  PORTB |= 0b00000001;
+  /*pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+
+  pinMode(OUT, INPUT);
+
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, LOW);*/
+  
   setupEINT();
   setupSerial();
   startSerial();
@@ -630,14 +794,54 @@ void handlePacket(TPacket *packet)
   }
 }
 
+void colour_sensing(){  
+  
+  for (int i=0; i<3; i++){
+    
+    if (diodeArray[i][0] == 0) {
+      PORTB &= ~0b00000010;
+      
+    }
+    else {
+      PORTB |= 0b00000010;
+    }
+
+    if (diodeArray[i][1] == 0) {
+      PORTB &= ~0b00100000;
+    }
+    else {
+      PORTB |= 0b00100000;
+    }
+
+    rgb_values[i] = map(pulseIn(OUT,LOW), sensor_values[i][0], sensor_values[i][1], 0, 255);
+  }
+
+}
+    
 void loop() {
 
-// Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
+  // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
 
- //forward(0, 100);
+  //forward(0, 100); 
+  
+  // Uncomment the code below for Week 9 Studio 2
 
-// Uncomment the code below for Week 9 Studio 2
+  /*digitalWrite(S2, LOW);
+  digitalWrite(S3, LOW);
 
+  red = pulseIn(OUT, LOW);
+
+  digitalWrite(S2, HIGH);
+  digitalWrite(S3, HIGH);
+
+  green = pulseIn(OUT, LOW);
+
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, HIGH);
+
+  blue = pulseIn(OUT, LOW);*/
+  
+  colour_sensing();
 
  // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
@@ -656,6 +860,49 @@ void loop() {
       {
         sendBadChecksum();
       } 
-      
+
+  if (deltaDist > 0)
+  {
+    if (dir == FORWARD) {
+      if (forwardDist >= newDist) {
+        deltaDist = 0;
+        newDist = 0;
+        stop();
+      }
+    }
+    else if (dir == BACKWARD) {
+      if (reverseDist >= newDist) {
+        deltaDist = 0;
+        newDist = 0;
+        stop();
+      }
+    } else if (dir == STOP) {
+      deltaDist = 0;
+      newDist = 0;
+      stop();
+    }
+  }
+
+  if (deltaTicks > 0)
+  {
+    if (dir == LEFT) {
+      if (leftReverseTicksTurns >= targetTicks) {
+        deltaTicks = 0;
+        targetTicks = 0;
+        stop();
+      }
+    }
+    else if (dir == RIGHT) {
+      if (rightReverseTicksTurns >= targetTicks) {
+        deltaTicks = 0;
+        targetTicks = 0;
+        stop();
+      }
+    } else if (dir == STOP) {
+      deltaTicks = 0;
+      targetTicks = 0;
+      stop();
+    }
+  }
       
 }
