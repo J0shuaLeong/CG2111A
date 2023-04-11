@@ -354,23 +354,23 @@ void startSerial()
 int readSerial(char *buffer)
 {
 
-//  int count=0;
-//
-//  do {
-//
-//    while ((UCSR0A & 0b10000000) == 0);
-//
-//    buffer[count] = UDR0;
-//    
-//  } while (buffer[count++] != '\0');
-//
-//  return count;
   int count=0;
 
-  while(Serial.available())
-    buffer[count++] = Serial.read();
+  do {
+
+    while ((UCSR0A & 0b10000000) == 0);
+
+      buffer[count] = UDR0;
+    
+  } while (buffer[count++] != '\0');
 
   return count;
+//  int count=0;
+//
+//  while(Serial.available())
+//    buffer[count++] = Serial.read();
+//
+//  return count;
 }
 
 // Write to the serial port. Replaced later with
@@ -378,12 +378,12 @@ int readSerial(char *buffer)
 
 void writeSerial(const char *buffer, int len)
 {
-  //Serial.write(buffer, len);
-//  for (int i = 0; i < len; i++) {
-//    while ((UCSR0A & 0b00100000) == 0);
-//    UDR0 = buffer[i];
-//  }
   Serial.write(buffer, len);
+  for (int i = 0; i < len; i++) {
+    while ((UCSR0A & 0b00100000) == 0);
+    UDR0 = buffer[i];
+  }
+  //Serial.write(buffer, len);
 }
 
 /*
@@ -412,12 +412,12 @@ void setupMotors()
 void startMotors()
 {
   //setting up timer 0 for left motor
-  //TCNT0 = 0; //start counter from 0
-  //TCCR0B = 0b00000011; //clk/64 source
+  TCNT0 = 0; //start counter from 0
+  TCCR0B = 0b00000011; //clk/64 source
 
   //setting up timer 1 for right motor
-  //TCNT2 = 0;
-  //TCCR1B = 0b00000011; //clk/64 source
+  TCNT1 = 0;
+  TCCR1B = 0b00000011; //clk/64 source
 }
 
 // Convert percentages to PWM values
@@ -457,18 +457,18 @@ void forward(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   
-    analogWrite(LF, val);
-    analogWrite(RF, pwmVal(speed-8));
-    analogWrite(LR,0);
-    analogWrite(RR, 0);
+//    analogWrite(LF, val);
+//    analogWrite(RF, pwmVal(speed-8));
+//    analogWrite(LR,0);
+//    analogWrite(RR, 0);
 
-//  OCR0A = 0;
-//  OCR0B = val;
-//  OCR1B = 0;
-//  OCR2A = val;
-//
-//  TCCR0A = 0b00100001; //left motor forward
-//  TCCR1A = 0b00100001; //right motor forward
+  OCR0A = 0;
+  OCR0B = val;
+  OCR1A = 0;
+  OCR1B = val;
+
+  TCCR0A = 0b00100001; //left motor forward
+  TCCR1A = 0b00100001; //right motor forward
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -495,17 +495,17 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  analogWrite(LR, val);
-  analogWrite(RR, pwmVal(speed-10));
-  analogWrite(LF, 0);
-  analogWrite(RF, 0);
-//  OCR0A = val;
-//  OCR0B = 0;
-//  OCR1B = val;
-//  OCR2A = 0;
-//
-//  TCCR0A = 0b10000001; //left motor reverse
-//  TCCR1A = 0b10000001; //right motor reverse
+//  analogWrite(LR, val);
+//  analogWrite(RR, pwmVal(speed-10));
+//  analogWrite(LF, 0);
+//  analogWrite(RF, 0);
+  OCR0A = val;
+  OCR0B = 0;
+  OCR1A = val;
+  OCR1B = 0;
+
+  TCCR0A = 0b10000001; //left motor reverse
+  TCCR1A = 0b10000001; //right motor reverse
   
 }
 
@@ -537,18 +537,18 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-    analogWrite(LR, val);
-    analogWrite(RF, val);
-    analogWrite(LF, 0);
-    analogWrite(RR, 0);
+//    analogWrite(LR, val);
+//    analogWrite(RF, val);
+//    analogWrite(LF, 0);
+//    analogWrite(RR, 0);
 
-//  OCR0A = val;
-//  OCR0B = 0;
-//  OCR1A = 0;
-//  OCR2B = val;
-//
-//  TCCR0A = 0b10000001; //left motor reverse
-//  TCCR1A = 0b00100001; //right motor forward
+  OCR0A = val;
+  OCR0B = 0;
+  OCR1A = 0;
+  OCR1B = val;
+
+  TCCR0A = 0b10000001; //left motor reverse
+  TCCR1A = 0b00100001; //right motor forward
 }
 
 // Turn Alex right "ang" degrees at speed "speed".
@@ -573,35 +573,35 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-    analogWrite(RR, val);
-    analogWrite(LF, val);
-    analogWrite(LR, 0);
-    analogWrite(RF, 0);
-//  OCR0A = 0;
-//  OCR0B = val;
-//  OCR1A = val;
-//  OCR2B = 0;
-//
-//  TCCR0A = 0b00100001; //left motor forward
-//  TCCR1A = 0b10000001; //right motor reverse
+//    analogWrite(RR, val);
+//    analogWrite(LF, val);
+//    analogWrite(LR, 0);
+//    analogWrite(RF, 0);
+  OCR0A = 0;
+  OCR0B = val;
+  OCR1A = val;
+  OCR1B = 0;
+
+  TCCR0A = 0b00100001; //left motor forward
+  TCCR1A = 0b10000001; //right motor reverse
 }
 
 // Stop Alex. To replace with bare-metal code later.
 void stop()
 {
-//  dir = STOP;
-//
-//  OCR0A = 0;
-//  OCR0B = 0;
-//  OCR1A = 0;
-//  OCR1B = 0;
-//
-//  TCCR0A = 0b00000001; //left motor forward
-//  TCCR1A = 0b00000001; //right motor forward
-    analogWrite(RR, 0);
-    analogWrite(LF, 0);
-    analogWrite(LR, 0);
-    analogWrite(RF, 0);
+  dir = STOP;
+
+  OCR0A = 0;
+  OCR0B = 0;
+  OCR1A = 0;
+  OCR1B = 0;
+
+  TCCR0A = 0b00000001; //left motor forward
+  TCCR1A = 0b00000001; //right motor forward
+//    analogWrite(RR, 0);
+//    analogWrite(LF, 0);
+//    analogWrite(LR, 0);
+//    analogWrite(RF, 0);
   
 }
 
