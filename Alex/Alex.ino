@@ -241,15 +241,10 @@ void sendResponse(TPacket *packet)
  * pullup resistors.
  * 
  */
-// Enable pull up resistors on pins 2 and 3
 void enablePullups()
 {
-  // Use bare-metal to enable the pull-up resistors on pins
-  // 2 and 3. These are pins PD2 and PD3 respectively.
-  // We set bits 2 and 3 in DDRD to 0 to make them inputs. 
   DDRD &= 0b11110011;
   PORTD |= 0b00001100;
-  
 }
 
 // Functions to be called by INT0 and INT1 ISRs.
@@ -287,13 +282,8 @@ void rightISR()
     } 
 }
 
-// Set up the external interrupt pins INT0 and INT1
-// for falling edge triggered. Use bare-metal.
 void setupEINT()
 {
-  // Use bare-metal to configure pins 2 and 3 to be
-  // falling edge triggered. Remember to enable
-  // the INT0 and INT1 interrupts.
   cli();
   EICRA |= 0b00001010;
   EIMSK |= 0b00000011;
@@ -311,17 +301,10 @@ ISR(INT1_vect) {
   rightISR();
 }
 
-
-
-// Implement INT0 and INT1 ISRs above.
-
 /*
  * Setup and start codes for serial communications
  * 
  */
-// Set up the serial connection. For now we are using 
-// Arduino Wiring, you will replace this later
-// with bare-metal code.
 void setupSerial()
 {
   unsigned long baudRate = 9600;
@@ -338,12 +321,7 @@ void setupSerial()
   UCSR0C = 0b00000110;
 
   UCSR0A = 0;  
-  //Serial.begin(9600);
 }
-
-// Start the serial connection. For now we are using
-// Arduino wiring and this function is empty. We will
-// replace this later with bare-metal code.
 
 void startSerial()
 {
@@ -354,7 +332,6 @@ void startSerial()
 // Read the serial port. Returns the read character in
 // ch if available. Also returns TRUE if ch is valid. 
 // This will be replaced later with bare-metal code.
-
 int readSerial(char *buffer)
 {
 
@@ -383,25 +360,13 @@ void writeSerial(const char *buffer, int len)
  * Alex's motor drivers.
  * 
  */
-
-// Set up Alex's motors. Right now this is empty, but
-// later you will replace it with code to set up the PWMs
-// to drive the motors.
 void setupMotors()
 {
-  /* Our motor set up is:  
-   *    A1IN - Pin 5, PD5, OC0B
-   *    A2IN - Pin 6, PD6, OC0A
-   *    B1IN - Pin 10, PB2, OC1B
-   *    B2In - pIN 11, PB3, OC2A
-   */
    DDRD |= (LF|LR);
    DDRB |= (RF|RR);
 }
 
 // Start the PWM for Alex's motors.
-// We will implement this later. For now it is
-// blank.
 void startMotors()
 {
   //setting up timer 0 for left motor
