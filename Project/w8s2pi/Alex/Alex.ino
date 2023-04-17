@@ -137,9 +137,9 @@ void sendStatus()
     statusPacket.params[7] = rightReverseTicksTurns; 
     statusPacket.params[8] = forwardDist;
     statusPacket.params[9] = reverseDist;
-    statusPacket.params[10] = rgb_values[0];
-    statusPacket.params[11] = rgb_values[1];
-    statusPacket.params[12] = rgb_values[2];
+    statusPacket.params[10] = rgb_values[0]; //red
+    statusPacket.params[11] = rgb_values[1]; //green
+    statusPacket.params[12] = rgb_values[2]; //blue
     sendResponse(&statusPacket);
 }
 
@@ -248,12 +248,10 @@ void leftISR()
     if (dir == FORWARD) { 
       leftForwardTicks++; 
       forwardDist = (unsigned long) ((float) leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC); 
-      //dbprintf("Forward distance travelled by left wheel: %.2lu\n", forwardDist); 
     }
     else if (dir == BACKWARD) { 
       leftReverseTicks++; 
       reverseDist = (unsigned long) ((float) leftReverseTicks / COUNTS_PER_REV * WHEEL_CIRC); 
-      //dbprintf("Distance travelled in reverse by left wheel: %.2lu\n", reverseDist); 
     }
     else if (dir == LEFT) {
       leftReverseTicksTurns++; 
@@ -316,23 +314,20 @@ ISR(INT1_vect) {
 // with bare-metal code.
 void setupSerial()
 {
-  // To replace later with bare-metal.
-//  unsigned long baudRate = 9600;
-//  unsigned int b;
-//  b = (unsigned int) round (F_CPU / (16.0 * baudRate)) - 1;
-//  UBRR0H = (unsigned char) (b >> 8);
-//  UBRR0L = (unsigned char) b;
-//
-//  //Async mode
-//  //No parity
-//  //1 stop bit
-//  //8N1 configuration 
-//  //bit 0 (UCPOL0) is always 0
-//  UCSR0C = 0b00000110;
-//
-//  UCSR0A = 0;
-  Serial.begin(9600);
-  
+  unsigned long baudRate = 9600;
+  unsigned int b;
+  b = (unsigned int) round (F_CPU / (16.0 * baudRate)) - 1;
+  UBRR0H = (unsigned char) (b >> 8);
+  UBRR0L = (unsigned char) b;
+
+  //Async mode
+  //No parity
+  //1 stop bit
+  //8N1 configuration 
+  //bit 0 (UCPOL0) is always 0
+  UCSR0C = 0b00000110;
+
+  UCSR0A = 0;  
 }
 
 // Start the serial connection. For now we are using
@@ -341,9 +336,7 @@ void setupSerial()
 
 void startSerial()
 {
-  // Empty for now. To be replaced with bare-metal code
-  // later on.
-  //UCSR0B = 0b00011000;
+  UCSR0B = 0b00011000;
   
 }
 
@@ -365,16 +358,7 @@ int readSerial(char *buffer)
   } while (buffer[count++] != '\0');
 
   return count;
-//  int count=0;
-//
-//  while(Serial.available())
-//    buffer[count++] = Serial.read();
-//
-//  return count;
 }
-
-// Write to the serial port. Replaced later with
-// bare-metal code
 
 void writeSerial(const char *buffer, int len)
 {
@@ -383,7 +367,6 @@ void writeSerial(const char *buffer, int len)
     while ((UCSR0A & 0b00100000) == 0);
     UDR0 = buffer[i];
   }
-  //Serial.write(buffer, len);
 }
 
 /*
@@ -456,11 +439,6 @@ void forward(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  
-//    analogWrite(LF, val);
-//    analogWrite(RF, pwmVal(speed-8));
-//    analogWrite(LR,0);
-//    analogWrite(RR, 0);
 
   OCR0A = 0;
   OCR0B = val;
@@ -495,10 +473,6 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-//  analogWrite(LR, val);
-//  analogWrite(RR, pwmVal(speed-10));
-//  analogWrite(LF, 0);
-//  analogWrite(RF, 0);
   OCR0A = val;
   OCR0B = 0;
   OCR1A = val;
@@ -537,10 +511,6 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-//    analogWrite(LR, val);
-//    analogWrite(RF, val);
-//    analogWrite(LF, 0);
-//    analogWrite(RR, 0);
 
   OCR0A = val;
   OCR0B = 0;
@@ -573,10 +543,7 @@ void right(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-//    analogWrite(RR, val);
-//    analogWrite(LF, val);
-//    analogWrite(LR, 0);
-//    analogWrite(RF, 0);
+
   OCR0A = 0;
   OCR0B = val;
   OCR1A = val;
@@ -598,11 +565,6 @@ void stop()
 
   TCCR0A = 0b00000001; //left motor forward
   TCCR1A = 0b00000001; //right motor forward
-//    analogWrite(RR, 0);
-//    analogWrite(LF, 0);
-//    analogWrite(LR, 0);
-//    analogWrite(RF, 0);
-  
 }
 
 /*
@@ -694,12 +656,7 @@ void handleCommand(TPacket *command)
     case COMMAND_CLEAR_STATS:
       clearCounters();
       break;
-      
-    /*
-     * Implement code for other commands here.
-     * 
-     */
-        
+              
     default:
       sendBadCommand();
   }
@@ -743,25 +700,11 @@ void waitForHello()
 }
 
 void setup() {
-  // put your setup code here, to run once:
-
   cli();
   //Set F1,F2, DIODE1, DIODE2 to output, OUT to input
-  DDRD |= 0b10000000; 
-  DDRB |= 0b00100011;
+  DDRB |= 0b00100001;
   DDRB &= ~0b00010000;
-  PORTD &= ~0b10000000;
-  PORTB |= 0b00000001;
-  /*pinMode(S0, OUTPUT);
-  pinMode(S1, OUTPUT);
-  pinMode(S2, OUTPUT);
-  pinMode(S3, OUTPUT);
-
-  pinMode(OUT, INPUT);
-
-  digitalWrite(S0, HIGH);
-  digitalWrite(S1, LOW);*/
-  
+    
   setupEINT();
   setupSerial();
   startSerial();
@@ -799,11 +742,11 @@ void colour_sensing(){
   for (int i=0; i<3; i++){
     
     if (diodeArray[i][0] == 0) {
-      PORTB &= ~0b00000010;
+      PORTB &= ~0b00000001;
       
     }
     else {
-      PORTB |= 0b00000010;
+      PORTB |= 0b00000001;
     }
 
     if (diodeArray[i][1] == 0) {
@@ -818,32 +761,9 @@ void colour_sensing(){
 
 }
     
-void loop() {
-
-  // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
-
-  //forward(0, 100); 
-  
-  // Uncomment the code below for Week 9 Studio 2
-
-  /*digitalWrite(S2, LOW);
-  digitalWrite(S3, LOW);
-
-  red = pulseIn(OUT, LOW);
-
-  digitalWrite(S2, HIGH);
-  digitalWrite(S3, HIGH);
-
-  green = pulseIn(OUT, LOW);
-
-  digitalWrite(S2, LOW);
-  digitalWrite(S3, HIGH);
-
-  blue = pulseIn(OUT, LOW);*/
-  
+void loop() {  
   colour_sensing();
 
- // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
 
   TResult result = readPacket(&recvPacket);
