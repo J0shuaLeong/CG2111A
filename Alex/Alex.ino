@@ -80,12 +80,15 @@ volatile unsigned long rightReverseTicksTurns;
 volatile unsigned long forwardDist;
 volatile unsigned long reverseDist;
 
+//distance
 unsigned long deltaDist;
 unsigned long newDist;
 
+//angle
 unsigned long deltaTicks;
 unsigned long targetTicks;
 
+//color sensor
 volatile int color;
 volatile int rgb_values[3] = {0,0,0};
 int diodeArray[3][2] = {{0,0},{0,1},{1,1}};
@@ -94,6 +97,7 @@ int sensor_values[3][2] = {{143, 95}, {89, 59}, {129, 85}};
 int colour_id[2] = {1, 2}; //1 - Red 2 - Green
 int tolerance = 15;
 
+//ultrasonic
 volatile unsigned long duration;
 volatile int distance; 
 volatile int ultrasonic;
@@ -320,7 +324,7 @@ ISR(INT1_vect) {
 // with bare-metal code.
 void setupSerial()
 {
-  /*unsigned long baudRate = 9600;
+  unsigned long baudRate = 9600;
   unsigned int b;
   b = (unsigned int) round (F_CPU / (16.0 * baudRate)) - 1;
   UBRR0H = (unsigned char) (b >> 8);
@@ -333,8 +337,8 @@ void setupSerial()
   //bit 0 (UCPOL0) is always 0
   UCSR0C = 0b00000110;
 
-  UCSR0A = 0;  */
-  Serial.begin(9600);
+  UCSR0A = 0;  
+  //Serial.begin(9600);
 }
 
 // Start the serial connection. For now we are using
@@ -343,7 +347,7 @@ void setupSerial()
 
 void startSerial()
 {
-  //UCSR0B = 0b00011000;
+  UCSR0B = 0b00011000;
   
 }
 
@@ -354,7 +358,7 @@ void startSerial()
 int readSerial(char *buffer)
 {
 
-  /*int count=0;
+  int count=0;
 
   do {
 
@@ -364,21 +368,15 @@ int readSerial(char *buffer)
     
   } while (buffer[count++] != '\0');
 
-  return count;*/
-  int count = 0;
-  while (Serial.available()) {
-    buffer[count++] = Serial.read();
-  }
   return count;
 }
 
 void writeSerial(const char *buffer, int len)
 {
-  Serial.write(buffer, len);
-  /*for (int i = 0; i < len; i++) {
+  for (int i = 0; i < len; i++) {
     while ((UCSR0A & 0b00100000) == 0);
-    UDR0 = buffer[i];
-  }*/
+      UDR0 = buffer[i];
+  }
 }
 
 /*
@@ -444,14 +442,6 @@ void forward(float dist, float speed)
     deltaDist=9999999;
   newDist=forwardDist + deltaDist;
 
-  // For now we will ignore dist and move
-  // forward indefinitely. We will fix this
-  // in Week 9.
-
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
-
   OCR0A = 0;
   OCR0B = val;
   OCR1A = 0;
@@ -478,13 +468,6 @@ void reverse(float dist, float speed)
     deltaDist=9999999;
   newDist=forwardDist + deltaDist;
   
-  // For now we will ignore dist and 
-  // reverse indefinitely. We will fix this
-  // in Week 9.
-
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
   OCR0A = val;
   OCR0B = 0;
   OCR1A = val;
@@ -519,11 +502,6 @@ void left(float ang, float speed)
 
   targetTicks = rightReverseTicksTurns + deltaTicks;
 
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn left we reverse the left wheel and move
-  // the right wheel forward.
-
   OCR0A = val;
   OCR0B = 0;
   OCR1A = 0;
@@ -550,11 +528,6 @@ void right(float ang, float speed)
     deltaTicks = computeDeltaTicks(ang);
 
   targetTicks = rightReverseTicksTurns + deltaTicks;
-
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn right we reverse the right wheel and move
-  // the left wheel forward.
 
   OCR0A = 0;
   OCR0B = val;
@@ -692,8 +665,6 @@ void waitForHello()
     {
       if(hello.packetType == PACKET_TYPE_HELLO)
       {
-     
-
         sendOK();
         exit=1;
       }
@@ -713,10 +684,12 @@ void waitForHello()
 
 void setup() {
   cli();
+  //color sensor
   //Set F1,F2, DIODE1, DIODE2 to output, OUT to input
   DDRB |= 0b00100001;
   DDRB &= ~0b00010000;
 
+  //ultrasonic
   DDRD |= 0b00010000;  
   PORTD &= ~0b00010000;
   DDRD &= ~0b10000000; 
