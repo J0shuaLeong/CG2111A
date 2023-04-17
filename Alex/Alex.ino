@@ -89,18 +89,18 @@ unsigned long deltaTicks;
 unsigned long targetTicks;
 
 //color sensor
-volatile int color;
-volatile int rgb_values[3] = {0,0,0};
-int diodeArray[3][2] = {{0,0},{0,1},{1,1}};
-int colours[2][3] = {{154,59,52}, {116,85,173}};
-int sensor_values[3][2] = {{143, 95}, {89, 59}, {129, 85}};
-int colour_id[2] = {1, 2}; //1 - Red 2 - Green
-int tolerance = 15;
+volatile int color; //variable to store the color index of the identified color to send back to the Rpi
+volatile int rgb_values[3] = {0,0,0}; //array to store the measured R, G, B values of the identified color 
+int diodeArray[3][2] = {{0,0},{0,1},{1,1}}; //array to store the switching pattern for pins S2 and S3 to turn on the different photodiodes
+int colours[2][3] = {{255,0,0}, {0,255,0}}; //array which store the standard RGB values for key colors
+int sensor_values[3][2] = {{143, 95}, {89, 59}, {129, 85}}; //array storing the {max, min} sensor values for photodiodes of R, G, B filters 
+int colour_id[2] = {1, 2}; //array storing the index for key colors, in this case 1-Red, 2-Green
+int tolerance = 15; //tolerance value to determine the range of acceptance for the measured RGB values when comparingto standard RGB values
 
 //ultrasonic
-volatile unsigned long duration;
-volatile int distance; 
-volatile int ultrasonic;
+volatile unsigned long duration; //varaible to store the time taken for the USS triggering pulse to return 
+volatile int distance; //variable to store the calculated distance between Alex and an obstacle
+volatile int ultrasonic;//variable to store the calcualted distance to send back to the Rpi
 
 /*
  * 
@@ -241,10 +241,15 @@ void sendResponse(TPacket *packet)
  * pullup resistors.
  * 
  */
+// Enable pull up resistors on pins 2 and 3
 void enablePullups()
 {
+  // Use bare-metal to enable the pull-up resistors on pins
+  // 2 and 3. These are pins PD2 and PD3 respectively.
+  // We set bits 2 and 3 in DDRD to 0 to make them inputs. 
   DDRD &= 0b11110011;
   PORTD |= 0b00001100;
+  
 }
 
 // Functions to be called by INT0 and INT1 ISRs.
@@ -282,8 +287,13 @@ void rightISR()
     } 
 }
 
+// Set up the external interrupt pins INT0 and INT1
+// for falling edge triggered. Use bare-metal.
 void setupEINT()
 {
+  // Use bare-metal to configure pins 2 and 3 to be
+  // falling edge triggered. Remember to enable
+  // the INT0 and INT1 interrupts.
   cli();
   EICRA |= 0b00001010;
   EIMSK |= 0b00000011;
@@ -301,10 +311,17 @@ ISR(INT1_vect) {
   rightISR();
 }
 
+
+
+// Implement INT0 and INT1 ISRs above.
+
 /*
  * Setup and start codes for serial communications
  * 
  */
+// Set up the serial connection. For now we are using 
+// Arduino Wiring, you will replace this later
+// with bare-metal code.
 void setupSerial()
 {
   unsigned long baudRate = 9600;
@@ -320,30 +337,36 @@ void setupSerial()
   //bit 0 (UCPOL0) is always 0
   UCSR0C = 0b00000110;
 
-  UCSR0A = 0;  
+  UCSR0A = 0; //turn off multiprocessor mode
 }
+
+// Start the serial connection. For now we are using
+// Arduino wiring and this function is empty. We will
+// replace this later with bare-metal code.
 
 void startSerial()
 {
+  //polling mode
+  //RX and TX endabled
   UCSR0B = 0b00011000;
-  
 }
 
 // Read the serial port. Returns the read character in
 // ch if available. Also returns TRUE if ch is valid. 
 // This will be replaced later with bare-metal code.
+
 int readSerial(char *buffer)
 {
 
   int count=0;
 
   do {
-
+    //wait for bit 7 to be 1
     while ((UCSR0A & 0b10000000) == 0);
-
+      //read and store in buffer
       buffer[count] = UDR0;
     
-  } while (buffer[count++] != '\0');
+  } while (buffer[count++] != '\0'); //read until end of string
 
   return count;
 }
@@ -351,8 +374,9 @@ int readSerial(char *buffer)
 void writeSerial(const char *buffer, int len)
 {
   for (int i = 0; i < len; i++) {
+    //wait until bit 5 is 1
     while ((UCSR0A & 0b00100000) == 0);
-      UDR0 = buffer[i];
+      UDR0 = buffer[i]; //write to UDR0 register
   }
 }
 
@@ -360,13 +384,25 @@ void writeSerial(const char *buffer, int len)
  * Alex's motor drivers.
  * 
  */
+
+// Set up Alex's motors. Right now this is empty, but
+// later you will replace it with code to set up the PWMs
+// to drive the motors.
 void setupMotors()
 {
+  /* Our motor set up is:  
+   *    A1IN - Pin 5, PD5, OC0B
+   *    A2IN - Pin 6, PD6, OC0A
+   *    B1IN - Pin 10, PB2, OC1B
+   *    B2In - pIN 11, PB3, OC2A
+   */
    DDRD |= (LF|LR);
    DDRB |= (RF|RR);
 }
 
 // Start the PWM for Alex's motors.
+// We will implement this later. For now it is
+// blank.
 void startMotors()
 {
   //setting up timer 0 for left motor
@@ -431,7 +467,7 @@ void reverse(float dist, float speed)
     deltaDist = dist;
   else
     deltaDist=9999999;
-  newDist=forwardDist + deltaDist;
+  newDist=reverseDist + deltaDist;
   
   OCR0A = val;
   OCR0B = 0;
@@ -465,7 +501,7 @@ void left(float ang, float speed)
   else
     deltaTicks = computeDeltaTicks(ang);
 
-  targetTicks = rightReverseTicksTurns + deltaTicks;
+  targetTicks = leftReverseTicksTurns + deltaTicks;
 
   OCR0A = val;
   OCR0B = 0;
@@ -655,9 +691,9 @@ void setup() {
   DDRB &= ~0b00010000;
 
   //ultrasonic
-  DDRD |= 0b00010000;  
-  PORTD &= ~0b00010000;
-  DDRD &= ~0b10000000; 
+  DDRD |= 0b00010000;  //set trig to output
+  PORTD &= ~0b00010000; //set trig to low
+  DDRD &= ~0b10000000; //set echo to input
     
   setupEINT();
   setupSerial();
@@ -692,35 +728,46 @@ void handlePacket(TPacket *packet)
 }
 
 void ultra_sonic() {
-    PORTD |= 0b00010000;
-    delayMicroseconds(10);
+   //Turn Trig on and off to send a pulse
+   PORTD |= 0b00010000;
+   delayMicroseconds(10);
    PORTD &= ~0b00010000;
-    delayMicroseconds(10); 
-    duration = pulseIn(ECHO, HIGH, TIMEOUT); 
-  ultrasonic = ((duration / 2) / 1000000) * speedOfSound * 100;
+   delayMicroseconds(10); 
+   
+   duration = pulseIn(ECHO, HIGH, TIMEOUT); //Measure the duration taken for pulse to return back to USS 
+   ultrasonic = ((duration / 2) / 1000000) * speedOfSound * 100; //Calculate the distance travelled by the pulse using (duration/2) * speedOfSound (in cm/microseconds)
 }
 
+//Function to determine the resultant pulse period (the duration for the pulse to stay low). Used together with color sensor
 unsigned long get_period() {
+  //Set Timer 2
   TCNT2 = 0;
   TCCR2A = 0;
-  
+
+  //If the current pulse on the OUTPIN is HIGH, wait for pulse on the OUT pin to go from HIGH to LOW
   if (PINB & 0b00010000 == 1) {
     while (PINB & 0b00010000 == 1);
   }
-  
+
+  //Start Timer
   TCCR2B = 0b00000011;
-  
+
+  //Wait for Timer to go from LOW TO HIGH again
   while (PINB & 0b00010000 == 0);
-  
+
+  //Stop Timer
   TCCR2B = 0;
-  
+
+  //Calculate the duration  of LOW period. Since prescalar factor of the timer is set to 64, each increment of TCNT is 4 microseconds
   return TCNT2 * 4;
 }
 
 int colour_sensing(){
-  
+
+  //Loop is done to switch to the R, G, B photodiodes and take respective measurements
   for (int i=0; i<3; i++){
-    
+
+    // On/off S2 according to the current switching pattern
     if (diodeArray[i][0] == 0) {
       PORTB &= ~0b00000001;
       
@@ -729,6 +776,7 @@ int colour_sensing(){
       PORTB |= 0b00000001;
     }
 
+    // On/off S3 according to the current switching pattern
     if (diodeArray[i][1] == 0) {
       PORTB &= ~0b00100000;
     }
@@ -736,19 +784,21 @@ int colour_sensing(){
       PORTB |= 0b00100000;
     }
 
+    //Obtain the measured sensor value through get_period(), then map it to the standard 0-255 RGB scale
     rgb_values[i] = map(get_period(), sensor_values[i][0], sensor_values[i][1], 0, 255);
   }
 
+  //Loop through the standard list of RGB values to look for a match
   for (int n=0; n < 2; n++) {
-    char found = 'Y';
-    for (int x =0; x < 3; x++) {
-      if (!(colours[n][x] - tolerance < rgb_values[x] &&  rgb_values[x] < colours[n][x] + tolerance)) {
-        found = 'N';
+    char found = 'Y'; //Flag to determine whether a match is found. Pulled to Y initially to force program into loop
+    for (int x =0; x < 3; x++) { //Loop through all 3 RGB values to cross-check
+      if (!(colours[n][x] - tolerance < rgb_values[x] &&  rgb_values[x] < colours[n][x] + tolerance)) { //cross-checking whether the measured RGB values fall into the accepted range
+        found = 'N'; //When any of the RGB values fall out of the accepted range, flag is pulled to N to exit the checking loop
         break;
       }
     }
-    if (found = 'Y') {
-      return colour_id[n];
+    if (found = 'Y') { //Check whether the flag has be altered. If no, all RGB values fall in the acceptable criteria and there's a match 
+      return colour_id[n]; //Return the index of the matching color
     }
   }
 }
