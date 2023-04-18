@@ -13,6 +13,11 @@
 #define S3  13
 #define OUT 12 
 
+#define TIMEOUT 30000
+#define TRIGGER 4
+#define ECHO 7
+#define speedOfSound 343
+
 typedef enum
 {
   STOP=0,
@@ -75,21 +80,27 @@ volatile unsigned long rightReverseTicksTurns;
 volatile unsigned long forwardDist;
 volatile unsigned long reverseDist;
 
+//distance
 unsigned long deltaDist;
 unsigned long newDist;
 
+//angle
 unsigned long deltaTicks;
 unsigned long targetTicks;
 
-volatile int red = 0;
-volatile int green = 0;
-volatile int blue = 0;
-volatile int rgb_values[3] = {0,0,0};
-int diodeArray[3][2] = {{0,0},{0,1},{1,1}};
-int colours[2][3] = {{255,0,0}, {0,255,0}};
-int sensor_values[3][2] = {{1450, 880}, {1010, 740}, {1420, 720}};
-int colour_id[2] = {0, 1}; //1 - Red 2 - Green
-int tolerance = 30;
+//color sensor
+volatile int color; //variable to store the color index of the identified color to send back to the Rpi
+volatile int rgb_values[3] = {0,0,0}; //array to store the measured R, G, B values of the identified color 
+int diodeArray[3][2] = {{0,0},{0,1},{1,1}}; //array to store the switching pattern for pins S2 and S3 to turn on the different photodiodes
+int colours[2][3] = {{255,0,0}, {0,255,0}}; //array which store the standard RGB values for key colors
+int sensor_values[3][2] = {{143, 95}, {89, 59}, {129, 85}}; //array storing the {max, min} sensor values for photodiodes of R, G, B filters 
+int colour_id[2] = {1, 2}; //array storing the index for key colors, in this case 1-Red, 2-Green
+int tolerance = 15; //tolerance value to determine the range of acceptance for the measured RGB values when comparingto standard RGB values
+
+//ultrasonic
+volatile unsigned long duration; //varaible to store the time taken for the USS triggering pulse to return 
+volatile int distance; //variable to store the calculated distance between Alex and an obstacle
+volatile int ultrasonic;//variable to store the calcualted distance to send back to the Rpi
 
 /*
  * 
@@ -137,9 +148,8 @@ void sendStatus()
     statusPacket.params[7] = rightReverseTicksTurns; 
     statusPacket.params[8] = forwardDist;
     statusPacket.params[9] = reverseDist;
-    statusPacket.params[10] = rgb_values[0]; //red
-    statusPacket.params[11] = rgb_values[1]; //green
-    statusPacket.params[12] = rgb_values[2]; //blue
+    statusPacket.params[10] = color;
+    statusPacket.params[11] = ultrasonic;
     sendResponse(&statusPacket);
 }
 
@@ -327,7 +337,7 @@ void setupSerial()
   //bit 0 (UCPOL0) is always 0
   UCSR0C = 0b00000110;
 
-  UCSR0A = 0;  
+  UCSR0A = 0; //turn off multiprocessor mode
 }
 
 // Start the serial connection. For now we are using
@@ -336,8 +346,9 @@ void setupSerial()
 
 void startSerial()
 {
+  //polling mode
+  //RX and TX endabled
   UCSR0B = 0b00011000;
-  
 }
 
 // Read the serial port. Returns the read character in
@@ -350,22 +361,22 @@ int readSerial(char *buffer)
   int count=0;
 
   do {
-
+    //wait for bit 7 to be 1
     while ((UCSR0A & 0b10000000) == 0);
-
+      //read and store in buffer
       buffer[count] = UDR0;
     
-  } while (buffer[count++] != '\0');
+  } while (buffer[count++] != '\0'); //read until end of string
 
   return count;
 }
 
 void writeSerial(const char *buffer, int len)
 {
-  Serial.write(buffer, len);
   for (int i = 0; i < len; i++) {
+    //wait until bit 5 is 1
     while ((UCSR0A & 0b00100000) == 0);
-    UDR0 = buffer[i];
+      UDR0 = buffer[i]; //write to UDR0 register
   }
 }
 
@@ -432,14 +443,6 @@ void forward(float dist, float speed)
     deltaDist=9999999;
   newDist=forwardDist + deltaDist;
 
-  // For now we will ignore dist and move
-  // forward indefinitely. We will fix this
-  // in Week 9.
-
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
-
   OCR0A = 0;
   OCR0B = val;
   OCR1A = 0;
@@ -464,15 +467,8 @@ void reverse(float dist, float speed)
     deltaDist = dist;
   else
     deltaDist=9999999;
-  newDist=forwardDist + deltaDist;
+  newDist=reverseDist + deltaDist;
   
-  // For now we will ignore dist and 
-  // reverse indefinitely. We will fix this
-  // in Week 9.
-
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
   OCR0A = val;
   OCR0B = 0;
   OCR1A = val;
@@ -505,12 +501,7 @@ void left(float ang, float speed)
   else
     deltaTicks = computeDeltaTicks(ang);
 
-  targetTicks = rightReverseTicksTurns + deltaTicks;
-
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn left we reverse the left wheel and move
-  // the right wheel forward.
+  targetTicks = leftReverseTicksTurns + deltaTicks;
 
   OCR0A = val;
   OCR0B = 0;
@@ -538,11 +529,6 @@ void right(float ang, float speed)
     deltaTicks = computeDeltaTicks(ang);
 
   targetTicks = rightReverseTicksTurns + deltaTicks;
-
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn right we reverse the right wheel and move
-  // the left wheel forward.
 
   OCR0A = 0;
   OCR0B = val;
@@ -680,8 +666,6 @@ void waitForHello()
     {
       if(hello.packetType == PACKET_TYPE_HELLO)
       {
-     
-
         sendOK();
         exit=1;
       }
@@ -701,9 +685,15 @@ void waitForHello()
 
 void setup() {
   cli();
+  //color sensor
   //Set F1,F2, DIODE1, DIODE2 to output, OUT to input
   DDRB |= 0b00100001;
   DDRB &= ~0b00010000;
+
+  //ultrasonic
+  DDRD |= 0b00010000;  //set trig to output
+  PORTD &= ~0b00010000; //set trig to low
+  DDRD &= ~0b10000000; //set echo to input
     
   setupEINT();
   setupSerial();
@@ -737,10 +727,47 @@ void handlePacket(TPacket *packet)
   }
 }
 
-void colour_sensing(){  
-  
+void ultra_sonic() {
+   //Turn Trig on and off to send a pulse
+   PORTD |= 0b00010000;
+   delayMicroseconds(10);
+   PORTD &= ~0b00010000;
+   delayMicroseconds(10); 
+   
+   duration = pulseIn(ECHO, HIGH, TIMEOUT); //Measure the duration taken for pulse to return back to USS 
+   ultrasonic = ((duration / 2) / 1000000) * speedOfSound * 100; //Calculate the distance travelled by the pulse using (duration/2) * speedOfSound (in cm/microseconds)
+}
+
+//Function to determine the resultant pulse period (the duration for the pulse to stay low). Used together with color sensor
+unsigned long get_period() {
+  //Set Timer 2
+  TCNT2 = 0;
+  TCCR2A = 0;
+
+  //If the current pulse on the OUTPIN is HIGH, wait for pulse on the OUT pin to go from HIGH to LOW
+  if (PINB & 0b00010000 == 1) {
+    while (PINB & 0b00010000 == 1);
+  }
+
+  //Start Timer
+  TCCR2B = 0b00000011;
+
+  //Wait for Timer to go from LOW TO HIGH again
+  while (PINB & 0b00010000 == 0);
+
+  //Stop Timer
+  TCCR2B = 0;
+
+  //Calculate the duration  of LOW period. Since prescalar factor of the timer is set to 64, each increment of TCNT is 4 microseconds
+  return TCNT2 * 4;
+}
+
+int colour_sensing(){
+
+  //Loop is done to switch to the R, G, B photodiodes and take respective measurements
   for (int i=0; i<3; i++){
-    
+
+    // On/off S2 according to the current switching pattern
     if (diodeArray[i][0] == 0) {
       PORTB &= ~0b00000001;
       
@@ -749,6 +776,7 @@ void colour_sensing(){
       PORTB |= 0b00000001;
     }
 
+    // On/off S3 according to the current switching pattern
     if (diodeArray[i][1] == 0) {
       PORTB &= ~0b00100000;
     }
@@ -756,13 +784,29 @@ void colour_sensing(){
       PORTB |= 0b00100000;
     }
 
-    rgb_values[i] = map(pulseIn(OUT,LOW), sensor_values[i][0], sensor_values[i][1], 0, 255);
+    //Obtain the measured sensor value through get_period(), then map it to the standard 0-255 RGB scale
+    rgb_values[i] = map(get_period(), sensor_values[i][0], sensor_values[i][1], 0, 255);
   }
 
+  //Loop through the standard list of RGB values to look for a match
+  for (int n=0; n < 2; n++) {
+    char found = 'Y'; //Flag to determine whether a match is found. Pulled to Y initially to force program into loop
+    for (int x =0; x < 3; x++) { //Loop through all 3 RGB values to cross-check
+      if (!(colours[n][x] - tolerance < rgb_values[x] &&  rgb_values[x] < colours[n][x] + tolerance)) { //cross-checking whether the measured RGB values fall into the accepted range
+        found = 'N'; //When any of the RGB values fall out of the accepted range, flag is pulled to N to exit the checking loop
+        break;
+      }
+    }
+    if (found = 'Y') { //Check whether the flag has be altered. If no, all RGB values fall in the acceptable criteria and there's a match 
+      return colour_id[n]; //Return the index of the matching color
+    }
+  }
 }
     
 void loop() {  
-  colour_sensing();
+  color = colour_sensing();
+
+  ultra_sonic();
 
   TPacket recvPacket; // This holds commands from the Pi
 
