@@ -1,0 +1,17 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/python_qt_binding.pc
+/opt/ros/noetic/share/python_qt_binding/cmake/python_qt_binding-extras.cmake
+/opt/ros/noetic/share/python_qt_binding/cmake/python_qt_bindingConfig.cmake
+/opt/ros/noetic/share/python_qt_binding/cmake/python_qt_bindingConfig-version.cmake
+/opt/ros/noetic/share/python_qt_binding/package.xml
+/opt/ros/noetic/share/python_qt_binding/cmake/shiboken_helper.cmake
+/opt/ros/noetic/share/python_qt_binding/cmake/sip_configure.py
+/opt/ros/noetic/share/python_qt_binding/cmake/sip_helper.cmake

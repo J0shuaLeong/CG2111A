@@ -1,0 +1,15 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/rosconsole_bridge.pc
+/opt/ros/noetic/share/rosconsole_bridge/cmake/rosconsole_bridgeConfig.cmake
+/opt/ros/noetic/share/rosconsole_bridge/cmake/rosconsole_bridgeConfig-version.cmake
+/opt/ros/noetic/share/rosconsole_bridge/package.xml
+/opt/ros/noetic/lib/librosconsole_bridge.so
+/opt/ros/noetic/include/rosconsole_bridge/bridge.h

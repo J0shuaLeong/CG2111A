@@ -1,0 +1,16 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/gennodejs.pc
+/opt/ros/noetic/share/gennodejs/cmake/gennodejs-extras.cmake
+/opt/ros/noetic/share/gennodejs/cmake/gennodejsConfig.cmake
+/opt/ros/noetic/share/gennodejs/cmake/gennodejsConfig-version.cmake
+/opt/ros/noetic/share/gennodejs/package.xml
+/opt/ros/noetic/etc/ros/genmsg/gennodejs
+/opt/ros/noetic/lib/gennodejs/gen_nodejs.py

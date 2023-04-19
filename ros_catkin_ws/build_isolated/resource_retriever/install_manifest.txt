@@ -1,0 +1,15 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/resource_retriever.pc
+/opt/ros/noetic/share/resource_retriever/cmake/resource_retrieverConfig.cmake
+/opt/ros/noetic/share/resource_retriever/cmake/resource_retrieverConfig-version.cmake
+/opt/ros/noetic/share/resource_retriever/package.xml
+/opt/ros/noetic/lib/libresource_retriever.so
+/opt/ros/noetic/include/resource_retriever/retriever.h

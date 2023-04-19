@@ -1,0 +1,16 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/rosgraph.pc
+/opt/ros/noetic/share/rosgraph/cmake/rosgraphConfig.cmake
+/opt/ros/noetic/share/rosgraph/cmake/rosgraphConfig-version.cmake
+/opt/ros/noetic/share/rosgraph/package.xml
+/opt/ros/noetic/etc/ros/python_logging.conf
+/opt/ros/noetic/share/rosgraph/conf/python_logging.conf
+/opt/ros/noetic/lib/rosgraph/rosgraph

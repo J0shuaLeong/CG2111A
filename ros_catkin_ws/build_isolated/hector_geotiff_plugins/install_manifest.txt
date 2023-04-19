@@ -1,0 +1,15 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/hector_geotiff_plugins.pc
+/opt/ros/noetic/share/hector_geotiff_plugins/cmake/hector_geotiff_pluginsConfig.cmake
+/opt/ros/noetic/share/hector_geotiff_plugins/cmake/hector_geotiff_pluginsConfig-version.cmake
+/opt/ros/noetic/share/hector_geotiff_plugins/package.xml
+/opt/ros/noetic/lib/libhector_geotiff_plugins.so
+/opt/ros/noetic/share/hector_geotiff_plugins/hector_geotiff_plugins.xml

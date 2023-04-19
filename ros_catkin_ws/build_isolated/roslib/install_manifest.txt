@@ -1,0 +1,17 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/roslib.pc
+/opt/ros/noetic/share/roslib/cmake/roslib-extras.cmake
+/opt/ros/noetic/share/roslib/cmake/roslibConfig.cmake
+/opt/ros/noetic/share/roslib/cmake/roslibConfig-version.cmake
+/opt/ros/noetic/share/roslib/package.xml
+/opt/ros/noetic/lib/libroslib.so
+/opt/ros/noetic/include/ros/package.h
+/opt/ros/noetic/lib/roslib/gendeps

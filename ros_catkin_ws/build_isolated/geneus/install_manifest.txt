@@ -1,0 +1,17 @@
+/opt/ros/noetic/_setup_util.py
+/opt/ros/noetic/env.sh
+/opt/ros/noetic/setup.bash
+/opt/ros/noetic/local_setup.bash
+/opt/ros/noetic/setup.sh
+/opt/ros/noetic/local_setup.sh
+/opt/ros/noetic/setup.zsh
+/opt/ros/noetic/local_setup.zsh
+/opt/ros/noetic/.rosinstall
+/opt/ros/noetic/lib/pkgconfig/geneus.pc
+/opt/ros/noetic/share/geneus/cmake/geneus-extras.cmake
+/opt/ros/noetic/share/geneus/cmake/geneusConfig.cmake
+/opt/ros/noetic/share/geneus/cmake/geneusConfig-version.cmake
+/opt/ros/noetic/share/geneus/package.xml
+/opt/ros/noetic/etc/ros/genmsg/geneus
+/opt/ros/noetic/share/roseus/rospack_nosubdirs
+/opt/ros/noetic/lib/geneus/gen_eus.py
